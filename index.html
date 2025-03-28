@@ -28,16 +28,32 @@
             color: white; border: none; border-radius: 5px;
         }
         #scoreDisplay { position: absolute; top: 10px; left: 10px; font-size: 1.5em; z-index: 10; }
+
+        /* --- 修改散彈按鈕樣式 --- */
         #scatterShotButton {
-            position: absolute; bottom: 20px; right: 20px; padding: 15px; font-size: 1em;
-            background-color: #ff9800; color: black; border: none; border-radius: 50%;
-            width: 70px; height: 70px; cursor: pointer; z-index: 10; display: flex;
-            flex-direction: column; justify-content: center; align-items: center; text-align: center;
-            font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            transition: background-color 0.2s, transform 0.1s;
+            position: absolute;
+            /* bottom: 20px; */ /* 移除 bottom */
+            top: 20px;      /* 改為 top 定位，將按鈕移到右上角 */
+            right: 20px;
+            padding: 15px; font-size: 1em; background-color: #ff9800; color: black;
+            border: none; border-radius: 50%; width: 70px; height: 70px; cursor: pointer;
+            z-index: 10; display: flex; flex-direction: column; justify-content: center;
+            align-items: center; text-align: center; font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            opacity: 0.6; /* 設定透明度為 60% */
+            /* 將 opacity 加入 transition */
+            transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
         }
-        #scatterShotButton:disabled { background-color: #9e9e9e; cursor: not-allowed; }
-        #scatterShotButton:active:not(:disabled) { transform: scale(0.95); }
+        #scatterShotButton:disabled { background-color: #9e9e9e; cursor: not-allowed; opacity: 0.4; /* 禁用時更透明 */ }
+        #scatterShotButton:active:not(:disabled) { transform: scale(0.95); opacity: 0.8; /* 按下時稍微不透明 */ }
+        /* Optional: Hover effect for non-touch devices */
+        @media (hover: hover) and (pointer: fine) {
+            #scatterShotButton:hover:not(:disabled) {
+                 opacity: 1.0; /* 滑鼠懸停時完全不透明 */
+            }
+        }
+        /* --- 散彈按鈕樣式修改結束 --- */
+
         #scatterAmmoDisplay { font-size: 0.8em; margin-top: 2px; }
     </style>
 </head>
@@ -58,6 +74,7 @@
         // --- DOM Elements ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        // ... (其他 DOM 元素獲取不變) ...
         const uiLayer = document.getElementById('uiLayer');
         const uiTitle = document.getElementById('uiTitle');
         const uiMessage = document.getElementById('uiMessage');
@@ -66,40 +83,56 @@
         const scatterShotButton = document.getElementById('scatterShotButton');
         const scatterAmmoDisplay = document.getElementById('scatterAmmoDisplay');
 
+
         // --- Image Loading ---
+        // Player Image
         const playerImage = new Image();
         let playerImageLoaded = false;
-        playerImage.src = 'player_ship.png'; // MAKE SURE THIS FILE EXISTS!
-        playerImage.onload = () => {
-            console.log("玩家圖片載入成功！");
-            playerImageLoaded = true; // *** BUG 1 FIX: Removed trailing characters ***
-        };
-        playerImage.onerror = () => {
-            console.error("無法載入玩家圖片！將使用預設方塊。");
-            // playerImageLoaded remains false
-        };
+        playerImage.src = 'player_ship.png'; // 玩家圖片檔名
+        playerImage.onload = () => { playerImageLoaded = true; };
+        playerImage.onerror = () => { console.error("無法載入玩家圖片！"); };
+
+        // Enemy A Image
+        const enemyAImage = new Image();
+        let enemyAImageLoaded = false;
+        enemyAImage.src = 'a1.png'; // 敵機 A 圖片檔名
+        enemyAImage.onload = () => { enemyAImageLoaded = true; };
+        enemyAImage.onerror = () => { console.error("無法載入敵機 A 圖片！"); };
+
+        // Enemy B Image
+        const enemyBImage = new Image();
+        let enemyBImageLoaded = false;
+        enemyBImage.src = 'b2.png'; // 敵機 B 圖片檔名
+        enemyBImage.onload = () => { enemyBImageLoaded = true; };
+        enemyBImage.onerror = () => { console.error("無法載入敵機 B 圖片！"); };
+
+        // Enemy C Image (Boss)
+        const enemyCImage = new Image();
+        let enemyCImageLoaded = false;
+        enemyCImage.src = 'c3.png'; // 敵機 C (Boss) 圖片檔名
+        enemyCImage.onload = () => { enemyCImageLoaded = true; };
+        enemyCImage.onerror = () => { console.error("無法載入敵機 C (Boss) 圖片！"); };
+
 
         // --- Game Constants ---
-        const PLAYER_WIDTH = 40;
-        const PLAYER_HEIGHT = 50;
-        const PLAYER_COLOR = 'cyan'; // Fallback color
-        const PLAYER_SHOOT_COOLDOWN = 200;
-        const PLAYER_BULLET_SPEED = 8;
-        const PLAYER_BULLET_COLOR = 'lime';
-        const PLAYER_BULLET_WIDTH = 4;
-        const PLAYER_BULLET_HEIGHT = 12;
-        const SCATTER_AMMO_MAX = 3;
-        const SCATTER_AMMO_REGEN_TIME = 5000;
-        const SCATTER_BULLET_COUNT = 5;
+        // 調整敵機的 WIDTH 和 HEIGHT 常數以匹配你圖片的期望顯示尺寸
+        const PLAYER_WIDTH = 40; const PLAYER_HEIGHT = 50; const PLAYER_COLOR = 'cyan';
+        // ... (玩家其他常數) ...
+        const PLAYER_SHOOT_COOLDOWN = 200; const PLAYER_BULLET_SPEED = 8; const PLAYER_BULLET_COLOR = 'lime';
+        const PLAYER_BULLET_WIDTH = 4; const PLAYER_BULLET_HEIGHT = 12; const SCATTER_AMMO_MAX = 3;
+        const SCATTER_AMMO_REGEN_TIME = 5000; const SCATTER_BULLET_COUNT = 5;
 
+        // 調整這些尺寸以符合 a1.png 的期望大小
         const ENEMY_A_WIDTH = 35; const ENEMY_A_HEIGHT = 35; const ENEMY_A_COLOR = 'lightcoral';
         const ENEMY_A_HEALTH = 2; const ENEMY_A_SPEED = 2; const ENEMY_A_SCORE = 10;
 
+        // 調整這些尺寸以符合 b2.png 的期望大小
         const ENEMY_B_WIDTH = 40; const ENEMY_B_HEIGHT = 40; const ENEMY_B_COLOR = 'yellow';
         const ENEMY_B_HEALTH = 3; const ENEMY_B_SPEED = 1.5; const ENEMY_B_SCORE = 20;
         const ENEMY_B_SHOOT_COOLDOWN = 1500; const ENEMY_BULLET_SPEED = 4;
         const ENEMY_BULLET_COLOR = 'magenta'; const ENEMY_BULLET_WIDTH = 6; const ENEMY_BULLET_HEIGHT = 6;
 
+        // 調整這些尺寸以符合 c3.png 的期望大小
         const ENEMY_C_WIDTH = 100; const ENEMY_C_HEIGHT = 80; const ENEMY_C_COLOR = 'purple';
         const ENEMY_C_HEALTH_MAX = 15; const ENEMY_C_SPEED = 1; const ENEMY_C_SCORE = 100;
         const ENEMY_C_FINAL_SCORE = 500; const ENEMY_C_SHOOT_COOLDOWN = 1000; const ENEMY_C_SCATTER_COUNT = 8;
@@ -107,171 +140,97 @@
         const ENEMY_SPAWN_RATE = 1200;
         const BOSS_SCORE_THRESHOLD = 150;
 
-        // --- Game Variables ---
+        // --- Game Variables --- (保持不變)
         let canvasWidth, canvasHeight; let player; let playerBullets, enemyBullets;
         let enemies; let score; let gameOver; let gameWon; let gameLoopId;
         let enemySpawnTimerId; let lastTime; let playerCanShootNormal = true;
         let playerScatterAmmo = 0; let scatterAmmoRegenTimer = 0;
         let bossActive = false; let bossInstance = null;
-
-        // --- Touch Control Variables ---
         let touchStartX = null; let playerStartX = null;
 
-        // --- Utility Functions ---
+        // --- Utility Functions --- (保持不變)
         function random(min, max) { return Math.random() * (max - min) + min; }
-        function checkCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
-        }
-        function updateAmmoDisplay() {
-            scatterAmmoDisplay.textContent = `(${playerScatterAmmo}/${SCATTER_AMMO_MAX})`;
-            scatterShotButton.disabled = playerScatterAmmo <= 0;
-        }
+        function checkCollision(rect1, rect2) { /* ... */ return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y; }
+        function updateAmmoDisplay() { /* ... */ scatterAmmoDisplay.textContent = `(${playerScatterAmmo}/${SCATTER_AMMO_MAX})`; scatterShotButton.disabled = playerScatterAmmo <= 0; }
 
-        // --- Game Setup Functions ---
-        function resizeCanvas() {
-            canvasWidth = Math.min(window.innerWidth, 500); canvasHeight = window.innerHeight;
-            canvas.width = canvasWidth; canvas.height = canvasHeight;
-        }
-        function initGame() {
-            score = 0; gameOver = false; gameWon = false; bossActive = false; bossInstance = null;
-            lastTime = performance.now(); playerBullets = []; enemyBullets = []; enemies = [];
-            playerScatterAmmo = SCATTER_AMMO_MAX; scatterAmmoRegenTimer = 0; playerCanShootNormal = true;
-            player = {
-                x: canvasWidth / 2 - PLAYER_WIDTH / 2, y: canvasHeight - PLAYER_HEIGHT - 30,
-                width: PLAYER_WIDTH, height: PLAYER_HEIGHT, color: PLAYER_COLOR, lastNormalShotTime: 0,
-            };
-            scoreDisplay.textContent = `分數: ${score}`; updateAmmoDisplay(); uiLayer.classList.remove('visible');
-            if (gameLoopId) cancelAnimationFrame(gameLoopId); if (enemySpawnTimerId) clearInterval(enemySpawnTimerId);
-            gameLoopId = requestAnimationFrame(gameLoop); startSpawningEnemies(); playerShootNormal();
-        }
+        // --- Game Setup Functions --- (保持不變)
+        function resizeCanvas() { /* ... */ canvasWidth = Math.min(window.innerWidth, 500); canvasHeight = window.innerHeight; canvas.width = canvasWidth; canvas.height = canvasHeight; }
+        function initGame() { /* ... */ score = 0; gameOver = false; gameWon = false; bossActive = false; bossInstance = null; lastTime = performance.now(); playerBullets = []; enemyBullets = []; enemies = []; playerScatterAmmo = SCATTER_AMMO_MAX; scatterAmmoRegenTimer = 0; playerCanShootNormal = true; player = { x: canvasWidth / 2 - PLAYER_WIDTH / 2, y: canvasHeight - PLAYER_HEIGHT - 30, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, color: PLAYER_COLOR, lastNormalShotTime: 0, }; scoreDisplay.textContent = `分數: ${score}`; updateAmmoDisplay(); uiLayer.classList.remove('visible'); if (gameLoopId) cancelAnimationFrame(gameLoopId); if (enemySpawnTimerId) clearInterval(enemySpawnTimerId); gameLoopId = requestAnimationFrame(gameLoop); startSpawningEnemies(); playerShootNormal(); }
 
-        // --- Spawning ---
-        function startSpawningEnemies() { spawnEnemy(); enemySpawnTimerId = setInterval(spawnEnemy, ENEMY_SPAWN_RATE); }
-        function spawnEnemy() {
-            if (gameOver || gameWon || bossActive) return;
-            const typeChance = Math.random(); let enemy;
-            const x = random(0, canvasWidth - ENEMY_B_WIDTH); const y = -ENEMY_B_HEIGHT;
-            if (typeChance < 0.65) {
-                enemy = { type: 'A', x: x, y: y, width: ENEMY_A_WIDTH, height: ENEMY_A_HEIGHT, color: ENEMY_A_COLOR, speed: ENEMY_A_SPEED, health: ENEMY_A_HEALTH, scoreValue: ENEMY_A_SCORE };
-            } else {
-                enemy = { type: 'B', x: x, y: y, width: ENEMY_B_WIDTH, height: ENEMY_B_HEIGHT, color: ENEMY_B_COLOR, speed: ENEMY_B_SPEED, health: ENEMY_B_HEALTH, scoreValue: ENEMY_B_SCORE, lastShotTime: performance.now() };
-            } enemies.push(enemy);
-        }
-        function spawnBoss() {
-            bossActive = true;
-            bossInstance = { type: 'C', x: canvasWidth / 2 - ENEMY_C_WIDTH / 2, y: -ENEMY_C_HEIGHT, width: ENEMY_C_WIDTH, height: ENEMY_C_HEIGHT, color: ENEMY_C_COLOR, speed: ENEMY_C_SPEED, health: ENEMY_C_HEALTH_MAX, scoreValue: ENEMY_C_SCORE, lastShotTime: performance.now(), targetY: 50 };
-            enemies.push(bossInstance); clearInterval(enemySpawnTimerId);
-        }
+        // --- Spawning --- (保持不變)
+        function startSpawningEnemies() { /* ... */ spawnEnemy(); enemySpawnTimerId = setInterval(spawnEnemy, ENEMY_SPAWN_RATE); }
+        function spawnEnemy() { /* ... */ if (gameOver || gameWon || bossActive) return; const typeChance = Math.random(); let enemy; const x = random(0, canvasWidth - ENEMY_B_WIDTH); const y = -ENEMY_B_HEIGHT; if (typeChance < 0.65) { enemy = { type: 'A', x: x, y: y, width: ENEMY_A_WIDTH, height: ENEMY_A_HEIGHT, color: ENEMY_A_COLOR, speed: ENEMY_A_SPEED, health: ENEMY_A_HEALTH, scoreValue: ENEMY_A_SCORE }; } else { enemy = { type: 'B', x: x, y: y, width: ENEMY_B_WIDTH, height: ENEMY_B_HEIGHT, color: ENEMY_B_COLOR, speed: ENEMY_B_SPEED, health: ENEMY_B_HEALTH, scoreValue: ENEMY_B_SCORE, lastShotTime: performance.now() }; } enemies.push(enemy); }
+        function spawnBoss() { /* ... */ bossActive = true; bossInstance = { type: 'C', x: canvasWidth / 2 - ENEMY_C_WIDTH / 2, y: -ENEMY_C_HEIGHT, width: ENEMY_C_WIDTH, height: ENEMY_C_HEIGHT, color: ENEMY_C_COLOR, speed: ENEMY_C_SPEED, health: ENEMY_C_HEALTH_MAX, scoreValue: ENEMY_C_SCORE, lastShotTime: performance.now(), targetY: 50 }; enemies.push(bossInstance); clearInterval(enemySpawnTimerId); }
 
-        // --- Shooting Functions ---
-        function playerShootNormal() {
-             if (gameOver || gameWon || !playerCanShootNormal) return;
-             const currentTime = performance.now();
-             if (currentTime - player.lastNormalShotTime >= PLAYER_SHOOT_COOLDOWN) {
-                 const bulletX = player.x + player.width / 2 - PLAYER_BULLET_WIDTH / 2;
-                 const bulletY = player.y;
-                 playerBullets.push({ x: bulletX, y: bulletY, width: PLAYER_BULLET_WIDTH, height: PLAYER_BULLET_HEIGHT, color: PLAYER_BULLET_COLOR, speed: PLAYER_BULLET_SPEED });
-                 player.lastNormalShotTime = currentTime;
-             }
-             if (!gameOver && !gameWon) { // Only continue if game is running
-                requestAnimationFrame(playerShootNormal);
-             }
-        }
-        function playerShootScatter() {
-            if (gameOver || gameWon || playerScatterAmmo <= 0) return;
-            playerScatterAmmo--; updateAmmoDisplay();
-            const centerX = player.x + player.width / 2; const startY = player.y;
-            const angles = [-0.4, -0.2, 0, 0.2, 0.4];
-            for (let i = 0; i < SCATTER_BULLET_COUNT; i++) {
-                 const angle = Math.PI / -2 + (angles[i % angles.length] || 0) ;
-                 const speed = PLAYER_BULLET_SPEED * 0.8;
-                 playerBullets.push({ x: centerX - PLAYER_BULLET_WIDTH / 2, y: startY, width: PLAYER_BULLET_WIDTH, height: PLAYER_BULLET_HEIGHT, color: 'orange', speed: speed, dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed });
-            }
-        }
-        function enemyShoot(enemy) {
-            const currentTime = performance.now(); const centerX = enemy.x + enemy.width / 2; const centerY = enemy.y + enemy.height / 2;
-            if (enemy.type === 'B' && currentTime - enemy.lastShotTime > ENEMY_B_SHOOT_COOLDOWN) {
-                const angle = Math.atan2(player.y - centerY, (player.x + player.width/2) - centerX);
-                enemyBullets.push({ x: centerX - ENEMY_BULLET_WIDTH / 2, y: centerY, width: ENEMY_BULLET_WIDTH, height: ENEMY_BULLET_HEIGHT, color: ENEMY_BULLET_COLOR, speed: ENEMY_BULLET_SPEED, dx: Math.cos(angle) * ENEMY_BULLET_SPEED, dy: Math.sin(angle) * ENEMY_BULLET_SPEED });
-                enemy.lastShotTime = currentTime;
-            } else if (enemy.type === 'C' && currentTime - enemy.lastShotTime > ENEMY_C_SHOOT_COOLDOWN) {
-                 for (let i = 0; i < ENEMY_C_SCATTER_COUNT; i++) {
-                     const angle = (Math.PI * 2 / ENEMY_C_SCATTER_COUNT) * i + Math.random() * 0.2 - 0.1;
-                     enemyBullets.push({ x: centerX - ENEMY_BULLET_WIDTH / 2, y: centerY, width: ENEMY_BULLET_WIDTH, height: ENEMY_BULLET_HEIGHT, color: 'red', speed: ENEMY_BULLET_SPEED * 0.8, dx: Math.cos(angle) * (ENEMY_BULLET_SPEED * 0.8), dy: Math.sin(angle) * (ENEMY_BULLET_SPEED * 0.8) });
-                 } enemy.lastShotTime = currentTime;
-            }
-        }
+        // --- Shooting Functions --- (保持不變)
+        function playerShootNormal() { /* ... */ if (gameOver || gameWon || !playerCanShootNormal) return; const currentTime = performance.now(); if (currentTime - player.lastNormalShotTime >= PLAYER_SHOOT_COOLDOWN) { const bulletX = player.x + player.width / 2 - PLAYER_BULLET_WIDTH / 2; const bulletY = player.y; playerBullets.push({ x: bulletX, y: bulletY, width: PLAYER_BULLET_WIDTH, height: PLAYER_BULLET_HEIGHT, color: PLAYER_BULLET_COLOR, speed: PLAYER_BULLET_SPEED }); player.lastNormalShotTime = currentTime; } if (!gameOver && !gameWon) { requestAnimationFrame(playerShootNormal); } }
+        function playerShootScatter() { /* ... */ if (gameOver || gameWon || playerScatterAmmo <= 0) return; playerScatterAmmo--; updateAmmoDisplay(); const centerX = player.x + player.width / 2; const startY = player.y; const angles = [-0.4, -0.2, 0, 0.2, 0.4]; for (let i = 0; i < SCATTER_BULLET_COUNT; i++) { const angle = Math.PI / -2 + (angles[i % angles.length] || 0) ; const speed = PLAYER_BULLET_SPEED * 0.8; playerBullets.push({ x: centerX - PLAYER_BULLET_WIDTH / 2, y: startY, width: PLAYER_BULLET_WIDTH, height: PLAYER_BULLET_HEIGHT, color: 'orange', speed: speed, dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed }); } }
+        function enemyShoot(enemy) { /* ... */ const currentTime = performance.now(); const centerX = enemy.x + enemy.width / 2; const centerY = enemy.y + enemy.height / 2; if (enemy.type === 'B' && currentTime - enemy.lastShotTime > ENEMY_B_SHOOT_COOLDOWN) { const angle = Math.atan2(player.y - centerY, (player.x + player.width/2) - centerX); enemyBullets.push({ x: centerX - ENEMY_BULLET_WIDTH / 2, y: centerY, width: ENEMY_BULLET_WIDTH, height: ENEMY_BULLET_HEIGHT, color: ENEMY_BULLET_COLOR, speed: ENEMY_BULLET_SPEED, dx: Math.cos(angle) * ENEMY_BULLET_SPEED, dy: Math.sin(angle) * ENEMY_BULLET_SPEED }); enemy.lastShotTime = currentTime; } else if (enemy.type === 'C' && currentTime - enemy.lastShotTime > ENEMY_C_SHOOT_COOLDOWN) { for (let i = 0; i < ENEMY_C_SCATTER_COUNT; i++) { const angle = (Math.PI * 2 / ENEMY_C_SCATTER_COUNT) * i + Math.random() * 0.2 - 0.1; enemyBullets.push({ x: centerX - ENEMY_BULLET_WIDTH / 2, y: centerY, width: ENEMY_BULLET_WIDTH, height: ENEMY_BULLET_HEIGHT, color: 'red', speed: ENEMY_BULLET_SPEED * 0.8, dx: Math.cos(angle) * (ENEMY_BULLET_SPEED * 0.8), dy: Math.sin(angle) * (ENEMY_BULLET_SPEED * 0.8) }); } enemy.lastShotTime = currentTime; } }
 
-        // --- Update Functions ---
-        function updatePlayerBullets(dt) {
-            for (let i = playerBullets.length - 1; i >= 0; i--) {
-                const bullet = playerBullets[i];
-                if (bullet.dx !== undefined) { bullet.x += bullet.dx; bullet.y += bullet.dy; } else { bullet.y -= bullet.speed; }
-                if (bullet.y + bullet.height < 0 || bullet.y > canvasHeight || bullet.x + bullet.width < 0 || bullet.x > canvasWidth) { playerBullets.splice(i, 1); continue; }
-                for (let j = enemies.length - 1; j >= 0; j--) {
-                    const enemy = enemies[j];
-                    if (!enemy) continue; // Avoid errors if enemy was just removed
-                    if (checkCollision(bullet, enemy)) {
-                        enemy.health--; playerBullets.splice(i, 1);
-                        if (enemy.health <= 0) {
-                            score += enemy.scoreValue;
-                            if (enemy.type === 'C') { score += ENEMY_C_FINAL_SCORE; gameWon = true; }
-                            enemies.splice(j, 1); if(enemy === bossInstance) bossInstance = null;
-                        } else if (enemy.type === 'C') { score += enemy.scoreValue; }
-                        scoreDisplay.textContent = `分數: ${score}`; break;
-                    }
-                }
-            }
-        }
-        function updateEnemyBullets(dt) {
-            for (let i = enemyBullets.length - 1; i >= 0; i--) {
-                const bullet = enemyBullets[i]; bullet.x += bullet.dx; bullet.y += bullet.dy;
-                 if (bullet.y < -bullet.height || bullet.y > canvasHeight || bullet.x < -bullet.width || bullet.x > canvasWidth) { enemyBullets.splice(i, 1); continue; }
-                if (checkCollision(bullet, player)) { enemyBullets.splice(i, 1); gameOver = true; return; }
-            }
-        }
-        function updateEnemies(dt) {
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                 if (!enemy) continue; // Avoid errors
-                 if(enemy.type === 'C') { if(enemy.y < enemy.targetY) { enemy.y += enemy.speed * (dt/16); } else { enemy.x += Math.sin(performance.now() / 500) * 0.5; } } else { enemy.y += enemy.speed * (dt/16); }
-                if (enemy.y > canvasHeight) { enemies.splice(i, 1); if(enemy === bossInstance) bossInstance = null; gameOver = true; return; }
-                if (checkCollision(player, enemy)) { gameOver = true; return; }
-                if (enemy.type === 'B' || enemy.type === 'C') { enemyShoot(enemy); }
-            }
-        }
-        function updateScatterAmmo(dt) {
-             if (playerScatterAmmo < SCATTER_AMMO_MAX) {
-                 scatterAmmoRegenTimer += dt;
-                 if (scatterAmmoRegenTimer >= SCATTER_AMMO_REGEN_TIME) { playerScatterAmmo++; scatterAmmoRegenTimer = 0; updateAmmoDisplay(); }
-             } else { scatterAmmoRegenTimer = 0; }
-         }
+        // --- Update Functions --- (保持不變)
+        function updatePlayerBullets(dt) { /* ... */ for (let i = playerBullets.length - 1; i >= 0; i--) { const bullet = playerBullets[i]; if (bullet.dx !== undefined) { bullet.x += bullet.dx; bullet.y += bullet.dy; } else { bullet.y -= bullet.speed; } if (bullet.y + bullet.height < 0 || bullet.y > canvasHeight || bullet.x + bullet.width < 0 || bullet.x > canvasWidth) { playerBullets.splice(i, 1); continue; } for (let j = enemies.length - 1; j >= 0; j--) { const enemy = enemies[j]; if (!enemy) continue; if (checkCollision(bullet, enemy)) { enemy.health--; playerBullets.splice(i, 1); if (enemy.health <= 0) { score += enemy.scoreValue; if (enemy.type === 'C') { score += ENEMY_C_FINAL_SCORE; gameWon = true; } enemies.splice(j, 1); if(enemy === bossInstance) bossInstance = null; } else if (enemy.type === 'C') { score += enemy.scoreValue; } scoreDisplay.textContent = `分數: ${score}`; break; } } } }
+        function updateEnemyBullets(dt) { /* ... */ for (let i = enemyBullets.length - 1; i >= 0; i--) { const bullet = enemyBullets[i]; bullet.x += bullet.dx; bullet.y += bullet.dy; if (bullet.y < -bullet.height || bullet.y > canvasHeight || bullet.x < -bullet.width || bullet.x > canvasWidth) { enemyBullets.splice(i, 1); continue; } if (checkCollision(bullet, player)) { enemyBullets.splice(i, 1); gameOver = true; return; } } }
+        function updateEnemies(dt) { /* ... */ for (let i = enemies.length - 1; i >= 0; i--) { const enemy = enemies[i]; if (!enemy) continue; if(enemy.type === 'C') { if(enemy.y < enemy.targetY) { enemy.y += enemy.speed * (dt/16); } else { enemy.x += Math.sin(performance.now() / 500) * 0.5; } } else { enemy.y += enemy.speed * (dt/16); } if (enemy.y > canvasHeight) { enemies.splice(i, 1); if(enemy === bossInstance) bossInstance = null; gameOver = true; return; } if (checkCollision(player, enemy)) { gameOver = true; return; } if (enemy.type === 'B' || enemy.type === 'C') { enemyShoot(enemy); } } }
+        function updateScatterAmmo(dt) { /* ... */ if (playerScatterAmmo < SCATTER_AMMO_MAX) { scatterAmmoRegenTimer += dt; if (scatterAmmoRegenTimer >= SCATTER_AMMO_REGEN_TIME) { playerScatterAmmo++; scatterAmmoRegenTimer = 0; updateAmmoDisplay(); } } else { scatterAmmoRegenTimer = 0; } }
 
         // --- Draw Function ---
         function draw() {
             ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, canvasWidth, canvasHeight); // Background
-            // Draw Player
+
+            // Draw Player (Image or Fallback)
             if (playerImageLoaded) { ctx.drawImage(playerImage, player.x, player.y, player.width, player.height); }
             else { ctx.fillStyle = PLAYER_COLOR; ctx.fillRect(player.x, player.y, player.width, player.height); }
 
-            // *** BUG 2 FIX: Moved player bullet drawing outside the else block ***
             // Draw Player Bullets
             playerBullets.forEach(bullet => {
                 ctx.fillStyle = bullet.color || PLAYER_BULLET_COLOR;
                 ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
             });
 
-            // Draw Enemies
+            // --- 修改: 繪製敵人 (圖片或備用色塊) ---
             enemies.forEach(enemy => {
-                ctx.fillStyle = enemy.color; ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-                if (enemy.type === 'C') { // Boss health bar
-                    const healthPercent = Math.max(0, enemy.health / ENEMY_C_HEALTH_MAX); // Ensure percent >= 0
+                let enemyImage = null;
+                let imageLoaded = false;
+                let fallbackColor = 'gray'; // Default fallback
+
+                // 根據敵人類型選擇圖片和載入狀態
+                switch (enemy.type) {
+                    case 'A':
+                        enemyImage = enemyAImage;
+                        imageLoaded = enemyAImageLoaded;
+                        fallbackColor = ENEMY_A_COLOR;
+                        break;
+                    case 'B':
+                        enemyImage = enemyBImage;
+                        imageLoaded = enemyBImageLoaded;
+                        fallbackColor = ENEMY_B_COLOR;
+                        break;
+                    case 'C':
+                        enemyImage = enemyCImage;
+                        imageLoaded = enemyCImageLoaded;
+                        fallbackColor = ENEMY_C_COLOR;
+                        break;
+                }
+
+                // 繪製圖片或色塊
+                if (imageLoaded && enemyImage) {
+                    ctx.drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                } else {
+                    ctx.fillStyle = fallbackColor;
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                }
+
+                // 繪製 Boss 血條 (保持不變)
+                if (enemy.type === 'C') {
+                    const healthPercent = Math.max(0, enemy.health / ENEMY_C_HEALTH_MAX);
                     const barWidth = enemy.width * 0.8; const barX = enemy.x + (enemy.width - barWidth) / 2;
                     const barY = enemy.y - 10; ctx.fillStyle = 'red'; ctx.fillRect(barX, barY, barWidth, 5);
                     ctx.fillStyle = 'lime'; ctx.fillRect(barX, barY, barWidth * healthPercent, 5);
                 }
             });
+            // --- 敵人繪製修改結束 ---
+
+
             // Draw Enemy Bullets
             enemyBullets.forEach(bullet => {
                 ctx.fillStyle = bullet.color; ctx.beginPath();
@@ -280,53 +239,20 @@
             });
         }
 
-        // --- Game Loop ---
-        function gameLoop(currentTime) {
-            const dt = currentTime - lastTime; lastTime = currentTime;
-            if (gameOver || gameWon) { showEndScreen(); return; }
-            if (!bossActive && score >= BOSS_SCORE_THRESHOLD) { spawnBoss(); }
-            updatePlayerBullets(dt); if(gameOver || gameWon) { showEndScreen(); return; }
-            updateEnemyBullets(dt);  if(gameOver || gameWon) { showEndScreen(); return; }
-            updateEnemies(dt);       if(gameOver || gameWon) { showEndScreen(); return; }
-            updateScatterAmmo(dt);
-            draw();
-            gameLoopId = requestAnimationFrame(gameLoop);
-        }
+        // --- Game Loop --- (保持不變)
+        function gameLoop(currentTime) { /* ... */ const dt = currentTime - lastTime; lastTime = currentTime; if (gameOver || gameWon) { showEndScreen(); return; } if (!bossActive && score >= BOSS_SCORE_THRESHOLD) { spawnBoss(); } updatePlayerBullets(dt); if(gameOver || gameWon) { showEndScreen(); return; } updateEnemyBullets(dt);  if(gameOver || gameWon) { showEndScreen(); return; } updateEnemies(dt);       if(gameOver || gameWon) { showEndScreen(); return; } updateScatterAmmo(dt); draw(); gameLoopId = requestAnimationFrame(gameLoop); }
 
-        // --- End Screen ---
-        function showEndScreen() {
-            if (enemySpawnTimerId) clearInterval(enemySpawnTimerId); enemySpawnTimerId = null;
-            // Stop player normal shot loop if it's still running via RAF
-            cancelAnimationFrame(gameLoopId); // Stop main loop first
-            // Find a way to signal playerShootNormal to stop? Add check inside.
-            // Simplest might be just letting the gameOver/gameWon check handle it.
+        // --- End Screen --- (保持不變)
+        function showEndScreen() { /* ... */ if (enemySpawnTimerId) clearInterval(enemySpawnTimerId); enemySpawnTimerId = null; cancelAnimationFrame(gameLoopId); if (gameWon) { uiTitle.textContent = "勝利!"; uiMessage.textContent = `恭喜! 你擊敗了魔王! 最終分數: ${score}`; } else { uiTitle.textContent = "遊戲結束"; uiMessage.textContent = `最終分數: ${score}`; } restartButton.textContent = "重新開始"; uiLayer.classList.add('visible'); }
 
-            if (gameWon) { uiTitle.textContent = "勝利!"; uiMessage.textContent = `恭喜! 你擊敗了魔王! 最終分數: ${score}`; }
-            else { uiTitle.textContent = "遊戲結束"; uiMessage.textContent = `最終分數: ${score}`; }
-            restartButton.textContent = "重新開始"; uiLayer.classList.add('visible');
-        }
+        // --- Event Handlers --- (保持不變)
+        function handleTouchStart(event) { /* ... */ if (gameOver || gameWon || event.touches.length !== 1) { touchStartX = null; playerStartX = null; return; } touchStartX = event.touches[0].clientX; playerStartX = player.x; }
+        function handleTouchMove(event) { /* ... */ if (touchStartX === null || gameOver || gameWon) return; event.preventDefault(); if (event.touches.length === 1) { const touchCurrentX = event.touches[0].clientX; const touchDeltaX = touchCurrentX - touchStartX; player.x = playerStartX + touchDeltaX; player.x = Math.max(0, Math.min(canvasWidth - player.width, player.x)); } }
+        function handleTouchEnd(event) { /* ... */ touchStartX = null; playerStartX = null; }
+        function handleScatterShotClick() { /* ... */ if(!gameOver && !gameWon){ playerShootScatter(); } }
 
-        // --- Event Handlers ---
-        function handleTouchStart(event) {
-            if (gameOver || gameWon || event.touches.length !== 1) { touchStartX = null; playerStartX = null; return; }
-            touchStartX = event.touches[0].clientX; playerStartX = player.x;
-        }
-        function handleTouchMove(event) {
-            if (touchStartX === null || gameOver || gameWon) return;
-            event.preventDefault();
-            if (event.touches.length === 1) {
-                const touchCurrentX = event.touches[0].clientX; const touchDeltaX = touchCurrentX - touchStartX;
-                player.x = playerStartX + touchDeltaX; player.x = Math.max(0, Math.min(canvasWidth - player.width, player.x));
-            }
-        }
-        function handleTouchEnd(event) { touchStartX = null; playerStartX = null; }
-        function handleScatterShotClick() { if(!gameOver && !gameWon){ playerShootScatter(); } }
-
-        // --- Initialization ---
-        window.addEventListener('resize', () => {
-             const wasGameOver = gameOver || gameWon; resizeCanvas();
-             if (!wasGameOver && player) { player.x = canvasWidth / 2 - player.width / 2; player.y = canvasHeight - player.height - 30; }
-        });
+        // --- Initialization --- (保持不變)
+        window.addEventListener('resize', () => { /* ... */ const wasGameOver = gameOver || gameWon; resizeCanvas(); if (!wasGameOver && player) { player.x = canvasWidth / 2 - player.width / 2; player.y = canvasHeight - player.height - 30; } });
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
         canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
         canvas.addEventListener('touchend', handleTouchEnd); canvas.addEventListener('touchcancel', handleTouchEnd);
@@ -334,7 +260,7 @@
         scatterShotButton.addEventListener('touchstart', (e) => { e.preventDefault(); handleScatterShotClick(); }, { passive: false });
         restartButton.addEventListener('click', () => { resizeCanvas(); initGame(); });
 
-        // Initial Load
+        // Initial Load (保持不變)
         resizeCanvas(); uiTitle.textContent = "縱向射擊"; uiMessage.textContent = "左右滑動閃避，點擊按鈕發射散彈。準備好了嗎？";
         restartButton.textContent = "開始遊戲"; uiLayer.classList.add('visible'); updateAmmoDisplay();
 

@@ -120,9 +120,17 @@
         const scatterAmmoDisplay = document.getElementById('scatterAmmoDisplay');
 
         // --- Game Constants ---
-        const PLAYER_WIDTH = 40;
-        const PLAYER_HEIGHT = 50;
-        const PLAYER_COLOR = 'cyan';
+        const PLAYER_WIDTH = 40; 
+    const PLAYER_HEIGHT = 50; 
+    const PLAYER_COLOR = 'cyan'; 
+    const playerImage = new Image();
+    let playerImageLoaded = false; 
+    playerImage.src = 'player_ship.png';
+    playerImage.onload = () => {
+        console.log("玩家圖片載入成功！");
+        playerImageLoaded = true; //  };
+    playerImage.onerror = () => {
+        console.error("無法載入玩家圖片！將使用預設方塊。"); }
         const PLAYER_SHOOT_COOLDOWN = 200; // ms for normal shot
         const PLAYER_BULLET_SPEED = 8;
         const PLAYER_BULLET_COLOR = 'lime';
@@ -474,20 +482,24 @@
          }
 
         // --- Draw Function ---
-        function draw() {
-            // Background
-            ctx.fillStyle = '#0a0a1a';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      function draw() {
+        // Background
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-            // Draw Player
-            ctx.fillStyle = player.color;
+        // --- 修改這裡：繪製玩家 ---
+        if (playerImageLoaded) {
+            // 如果圖片已載入，就畫圖片
+            ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+        } else {
+            // 如果圖片尚未載入或載入失敗，畫一個備用方塊
+            ctx.fillStyle = PLAYER_COLOR;
             ctx.fillRect(player.x, player.y, player.width, player.height);
-
             // Draw Player Bullets
             playerBullets.forEach(bullet => {
                 ctx.fillStyle = bullet.color || PLAYER_BULLET_COLOR;
                 ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-            });
+            });}
 
             // Draw Enemies
             enemies.forEach(enemy => {
